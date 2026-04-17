@@ -4,34 +4,27 @@ import streamlit as st
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
-from keras.models import Sequential
-from keras.layers import LSTM, Dense, Dropout
+from sklearn.linear_model import LinearRegression
 import plotly.graph_objects as go
+import os
 
 st.set_page_config(page_title="Smart Stock Analysis", layout="wide")
 
-# ================= 🎨 GROWW STYLE UI =================
+# ================= UI STYLE =================
 st.markdown("""
 <style>
 body {
     background-color: #0f172a;
-}
-.metric-card {
-    padding: 15px;
-    border-radius: 12px;
-    background-color: #111827;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Smart Stock Analysis Dashboard")
 
-# ================= 🔐 API KEY =================
-API_KEY = "9a54cb178a9b41dc9ea4a9298da78f05"
+# ================= API KEY =================
+API_KEY = os.getenv("NEWS_API_KEY")
 
-# ================= LOAD NSE DATA =================
+# ================= LOAD STOCK LIST =================
 @st.cache_data
 def load_stock_list():
     df = pd.read_csv("EQUITY_L.csv")
@@ -45,8 +38,8 @@ def load_stock_list():
 
 stocks_df = load_stock_list()
 
-# ================= 🔍 SEARCH =================
-search_query = st.text_input("🔍 Search stocks like Groww (Airtel, Adani, Tata...)")
+# ================= SEARCH =================
+search_query = st.text_input("🔍 Search stocks (Airtel, Adani, Tata...)")
 
 stock_symbol = None
 
@@ -90,8 +83,8 @@ def load_data(symbol):
 # ================= NEWS =================
 def get_news(query):
     try:
-        if "PASTE" in API_KEY:
-            return ["⚠️ Add your NewsAPI key"], 0
+        if not API_KEY:
+            return ["⚠️ Add your News API key in Streamlit secrets"], 0
 
         url = f"https://newsapi.org/v2/everything?q={query}&apiKey={API_KEY}"
         res = requests.get(url).json()
@@ -116,68 +109,31 @@ if stock_symbol:
     data = load_data(stock_symbol)
 
     if data.empty:
-        st.error("❌ No data found")
+        st.error("❌ No data found for this stock")
         st.stop()
 
     current_price = float(data['Close'].iloc[-1])
     open_price = float(data['Open'].iloc[-1])
 
-    # ================= METRICS =================
     col1, col2, col3 = st.columns(3)
-
     col1.metric("💰 Current Price", f"₹ {current_price:.2f}")
     col2.metric("📊 Opening Price", f"₹ {open_price:.2f}")
     col3.metric("📅 Data Points", len(data))
 
-    # ================= INDICATORS =================
-    data['MA50'] = data['Close'].rolling(50).mean()
-    data['MA200'] = data['Close'].rolling(200).mean()
+    # ================= SIMPLE ML MODEL =================
+    data['Days'] = np.arange(len(data))
 
-    data['Signal'] = 0
-    data.loc[data['MA50'] > data['MA200'], 'Signal'] = 1
-    data.loc[data['MA50'] < data['MA200'], 'Signal'] = -1
+    X = data[['Days']]
+    y = data['Close']
 
-    # ================= LSTM =================
-    close_data = data['Close'].values.reshape(-1,1)
+    model = LinearRegression()
+    model.fit(X, y)
 
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(close_data)
+    next_day = np.array([[len(data)]])
+    predicted_price = float(model.predict(next_day)[0])
 
-    if len(scaled_data) < 60:
-        st.warning("Not enough data")
-        st.stop()
-
-    X, y = [], []
-    for i in range(60, len(scaled_data)):
-        X.append(scaled_data[i-60:i])
-        y.append(scaled_data[i])
-
-    X, y = np.array(X), np.array(y)
-
-    @st.cache_resource
-    def train_model(X, y):
-        model = Sequential([
-            LSTM(50, return_sequences=True, input_shape=(60,1)),
-            Dropout(0.2),
-            LSTM(50),
-            Dropout(0.2),
-            Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mean_squared_error')
-        model.fit(X, y, epochs=3, batch_size=32, verbose=0)
-        return model
-
-    with st.spinner("🤖 AI analyzing..."):
-        model = train_model(X, y)
-
-    last_60 = scaled_data[-60:]
-    X_test = np.reshape(last_60, (1,60,1))
-
-    predicted = model.predict(X_test, verbose=0)
-    predicted_price = float(scaler.inverse_transform(predicted)[0][0])
-
-    # ================= PREDICTION UI =================
-    st.subheader("📊 Next Day Prediction")
+    # ================= PREDICTION =================
+    st.subheader("📊 Next Day AI Prediction")
 
     confidence = abs(predicted_price - current_price) / current_price * 100
 
@@ -190,7 +146,7 @@ if stock_symbol:
     else:
         col2.error(f"📉 SELL Signal\nConfidence: {confidence:.2f}%")
 
-    # ================= PRICE DIFFERENCE =================
+    # ================= CHANGE =================
     diff = predicted_price - current_price
 
     if diff > 0:
@@ -209,13 +165,24 @@ if stock_symbol:
         x=df_chart['Date'],
         y=df_chart['Close'],
         mode='lines',
-        line=dict(color='#00c853', width=2)
+        line=dict(color='#00c853', width=2),
+        name='Price'
+    ))
+
+    # Prediction point
+    future_date = df_chart['Date'].iloc[-1] + pd.Timedelta(days=1)
+
+    fig.add_trace(go.Scatter(
+        x=[future_date],
+        y=[predicted_price],
+        mode='markers',
+        marker=dict(color='yellow', size=10),
+        name='Prediction'
     ))
 
     fig.update_layout(
         template="plotly_dark",
-        height=600,
-        margin=dict(l=10, r=10, t=30, b=10)
+        height=600
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -239,5 +206,5 @@ if stock_symbol:
 st.markdown("---")
 st.warning(
     "⚠️ Disclaimer: This application is for educational purposes only. "
-    "Predictions are generated using AI/ML models and should NOT be considered financial advice."
+    "Predictions are AI-based and should not be considered financial advice."
 )
