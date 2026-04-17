@@ -5,8 +5,8 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Smart Stock Analysis", layout="wide")
