@@ -54,8 +54,9 @@ streamlit run app.py
 📰 Market Sentiment
 ![Sentiment](market-sentiment.png)
 
-📈 AI Price Prediction
-![Prediction](AI price prediction.png)
+🤖 AI Price Prediction
+![Prediction](ai-price-prediction.png)
+
 ---
 ⚠️ Disclaimer
 
