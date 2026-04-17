@@ -39,6 +39,23 @@ AI-powered stock analysis dashboard for **2000+ NSE stocks** with prediction, se
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+📸 Screenshots
+
+🏠 Dashboard
+![Dashboard](dashboard-home.png)
+
+🔍 Stock Search
+![Search](stock-search.png)
+
+📈 Price Chart & Prediction
+![Chart](price-chart-prediction.png)
+
+📰 Market Sentiment
+![Sentiment](market-sentiment.png)
+
+📈 AI Price Prediction
+![Prediction](AI price prediction.png)
 ---
 ⚠️ Disclaimer
 
