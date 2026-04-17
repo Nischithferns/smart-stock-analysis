@@ -3,7 +3,7 @@ yfinance
 pandas
 numpy
 scikit-learn
-tensorflow
 plotly
 textblob
 requests
+keras
